@@ -1,0 +1,23 @@
+substitutions:
+  devicename: blind-1
+  upper_devicename: Roller Blind 1
+
+  max_speed: 1000 steps/s # Set the speed of the motor
+  step_mode: HALF_STEP
+
+# NOTE:  If you find that your shades are going the wrong way, you can change the pin
+#        settings or reverse the + and – wires for each of the A and B motor
+#        pairs on your driver and the motor will spin in the opposite direction.
+
+  pin_stepper_a: D5 # Swap these \_ coil a
+  pin_stepper_b: D6 # Swap these /
+  pin_stepper_c: D7 # Swap these \_ coil b
+  pin_stepper_d: D8 # Swap these /
+
+  pin_switch_limit: D1
+  pin_switch_toggle: D2
+
+  max_height: '120' # in cm
+  steps_per_cm: '4096'
+
+<<: !include ../src/blind_roller.yaml # include the main blind file

@@ -1,0 +1,139 @@
+esphome:
+  name: $devicename
+
+  on_boot:
+    - priority: -200.0
+      then:
+      - if: # If blind is Closed
+          condition:
+            - lambda: 'return id(limit_switch).state;'
+          then: # Publish state etc.
+            - cover.template.publish:
+                id: my_cover
+                state: CLOSED
+                current_operation: IDLE
+      - if: # If blind is Open
+          condition:
+            - lambda: 'return !id(limit_switch).state;'
+          then: # Publish state etc.
+            - cover.template.publish:
+                id: my_cover
+                state: OPEN
+                current_operation: IDLE
+
+esp8266:
+  board: nodemcuv2
+
+  # required to save the height set by user
+  restore_from_flash: true
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+  password: ""
+
+ota:
+  password: ""
+
+# Enable local web interface
+web_server:
+  port: 80
+
+wifi:
+  ssid: !secret wifi
+  password: !secret wifi_password
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "$upper_devicename"
+      #password: !secret wifi_password
+
+captive_portal:
+
+globals:
+  # stores the absolute number of steps at which limit_switch is pressed
+  - id: endstop
+    type: int
+    restore_value: false
+    initial_value: $max_height * $steps_per_cm
+
+number:
+  # the height to roll up the blind when opening
+  - platform: template
+    id: height
+    name: "Height (cm)"
+    optimistic: true
+    min_value: 0
+    max_value: $max_height
+    step: 1
+    restore_value: true
+
+stepper:
+  - platform: uln2003
+    id: my_stepper
+    pin_a: $pin_stepper_a
+    pin_b: $pin_stepper_b
+    pin_c: $pin_stepper_c
+    pin_d: $pin_stepper_d
+    max_speed: $max_speed
+    sleep_when_done: true
+    step_mode: $step_mode
+
+binary_sensor:
+  # detects when the blind is fully lowered
+  - platform: gpio
+    id: limit_switch
+    pin:
+      number: $pin_switch_limit
+      mode:
+        input: true
+        pullup: true
+      inverted: true
+    name: "Limit switch"
+    on_press:
+      - lambda: |-
+          id(my_stepper).set_target(id(my_stepper).current_position);
+      - globals.set:
+          id: endstop
+          value: !lambda return id(my_stepper).current_position;
+
+  # manual control
+  - platform: gpio
+    id: toggle_switch
+    pin:
+      number: $pin_switch_toggle
+      mode:
+        input: true
+        pullup: true
+      inverted: true
+    name: "Toggle switch"
+    on_click:
+      - lambda: |-
+          auto call = id(my_cover).make_call();
+          if (id(my_cover).position == COVER_CLOSED) {
+            call.set_command_open();
+          } else {
+            // Cover is open or partially open
+            call.set_command_close();
+          }
+          call.perform();
+
+cover:
+  - platform: template
+    id: my_cover
+    name: "Roller blind"
+    optimistic: true
+    open_action:
+      - stepper.set_target:
+          id: my_stepper
+          target: !lambda return id(endstop) - (id(height).state * $steps_per_cm);
+    close_action:
+      - stepper.set_target:
+          id: my_stepper
+          target: !lambda return id(endstop) + (5 * $steps_per_cm);
+    stop_action:
+      - stepper.set_target:
+          id: my_stepper
+          target: !lambda return id(my_stepper).current_position;

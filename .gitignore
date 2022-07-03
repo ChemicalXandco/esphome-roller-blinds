@@ -1,0 +1,5 @@
+cfg/*
+!cfg/example.yaml
+
+/.esphome/
+/secrets.yaml
