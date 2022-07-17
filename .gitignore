@@ -3,3 +3,5 @@ cfg/*
 
 /.esphome/
 /secrets.yaml
+
+cad/parameters.scad
